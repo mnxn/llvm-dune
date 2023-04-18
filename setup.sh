@@ -45,7 +45,7 @@ if test -z "$default_mode"; then
 fi
 
 base_cflags=$(llvm_config --cflags)
-ldflags="$(llvm_config --ldflags) -lstdc++"
+ldflags="$(llvm_config --ldflags)"
 llvm_targets=$(llvm_config --targets-built)
 
 rm -rf src
@@ -120,7 +120,7 @@ create_dune_file() {
   (names ${cfile})
   (extra_deps llvm_ocaml.h)
   (flags ($cflags)))
- (c_library_flags ($ldflags $(llvm_config --system-libs --link-static --libs $components))))
+ (c_library_flags ($ldflags -lstdc++ $(llvm_config --system-libs --link-static --libs $components))))
 " >> "$basedir/static/dune"
     fi
 
