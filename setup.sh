@@ -14,6 +14,7 @@ llvm_config=$1
 default_mode=
 support_static_mode=false
 support_shared_mode=false
+support_llvm_c_mode=false
 
 llvm_config() {
     "$llvm_config" $@
@@ -26,14 +27,20 @@ if test "$llvm_version" != "$expected_version"; then
   exit 1
 fi
 
-if llvm_config --link-static --libs; then
-    default_mode=static
-    support_static_mode=true
-fi
-
-if llvm_config --link-shared --libs; then
+ccomp_type=$(ocamlc -config | awk '/^ccomp_type:/{print $2}')
+if test "$ccomp_type" = msvc && test -f "$(llvm_config --libdir)\LLVM-C.lib"; then
     default_mode=shared
-    support_shared_mode=true
+    support_llvm_c_mode=true
+else
+    if llvm_config --link-static --libs; then
+        default_mode=static
+        support_static_mode=true
+    fi
+
+    if llvm_config --link-shared --libs; then
+        default_mode=shared
+        support_shared_mode=true
+    fi
 fi
 
 if test -z "$default_mode"; then
@@ -98,6 +105,24 @@ create_dune_file() {
   (extra_deps llvm_ocaml.h)
   (flags ($cflags)))
  (c_library_flags ($ldflags $(llvm_config --system-libs --link-shared --libs $components))))
+" >> "$basedir/shared/dune"
+    elif $support_llvm_c_mode; then
+        test ! -d "$basedir/shared" && mkdir "$basedir/shared"
+        cp "$basedir/$modname.ml" "$basedir/shared"
+        cp "$basedir/$cfile.c" "$basedir/shared"
+        cp "src/llvm/llvm_ocaml.h" "$basedir/shared"
+
+        echo "
+(library
+ (name ${modname}_shared)
+ (public_name $findlibname.shared)
+ (implements $findlibname)
+ (foreign_stubs
+  (language c)
+  (names ${cfile})
+  (extra_deps llvm_ocaml.h)
+  (flags ($cflags)))
+ (c_library_flags ($ldflags -L$(llvm_config --libdir) -lLLVM-C $(llvm_config --system-libs))))
 " >> "$basedir/shared/dune"
     fi
 
